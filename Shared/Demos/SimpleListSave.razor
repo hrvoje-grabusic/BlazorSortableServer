@@ -1,0 +1,149 @@
+@using System.Text.Json
+<div class="container">
+    <h1 class="title is-size-1 has-text-centered">Simple List save/load with in order</h1>
+    <Tabs CodeContent="@codeContent">
+        <ExampleContent>
+            <div class="columns">
+                <div class="column is-half">
+                    <SortableList Id="simpleListSave" Items="items" OnUpdate="@SortList" Context="item">
+                        <SortableItemTemplate>
+                            <div class="card has-border-light has-background-blazor has-text-white has-cursor-grab">
+                                <p class="is-size-4 p-2 ml-4">@item.Name - db order: @item.Order</p>
+                            </div>
+                        </SortableItemTemplate>
+                    </SortableList>
+                </div>
+            </div>
+        </ExampleContent>
+    </Tabs>
+</div>
+
+@code {
+
+    private string codeContent = $@"
+    <SortableList Id=""sortable"" Items=""items"" OnUpdate=""@SortList"" Context=""item"">
+        <SortableItemTemplate>
+            <div class=""has-border has-background-white has-cursor-pointer"">
+                <p class=""is-size-4 p-2 ml-4"">@item.Name</p>
+            </div>
+        </SortableItemTemplate>
+    </SortableList>
+
+    @code {{
+        public class Item
+        {{
+            public int Id {{ get; set; }}
+            public string Name {{ get; set; }}
+        }}
+
+        public List<Item> items = Enumerable.Range(1, 10).Select(i => new Item {{ Id = i, Name = $""Item {{i}}"" }}).ToList();
+
+        protected override async Task OnInitializedAsync()
+        {{
+            await Load();
+        }}
+
+        private void SortList((int oldIndex, int newIndex) indices)
+        {{
+            // deconstruct the tuple
+            var (oldIndex, newIndex) = indices;
+
+            var items = this.items;
+            var itemToMove = items[oldIndex];
+            items.RemoveAt(oldIndex);
+
+            if (newIndex < items.Count)
+            {{
+                items.Insert(newIndex, itemToMove);
+            }}
+            else
+            {{
+                items.Add(itemToMove);
+            }}
+                
+            await Save();
+
+            StateHasChanged();
+        }}
+
+        void SetOrder()
+        {{
+            for (int i = 0; i < items.Count; i++)
+            {{
+                items[i].Id = i;
+            }}
+        }}
+
+        async Task Save()
+		{{
+			SetOrder();
+			var json = JsonSerializer.Serialize(items);
+			await File.WriteAllTextAsync(""items.json"", json);
+		}}
+
+		async Task Load()
+		{{
+			if (File.Exists(""items.json""))
+			{{
+				var json = await File.ReadAllTextAsync(""items.json"");
+				items = JsonSerializer.Deserialize<List<Item>>(json);
+
+				items = items.OrderBy(x => x.Order).ToList();
+
+				StateHasChanged();
+            }}
+        }}
+
+    }}";
+
+    public List<Item> items = Enumerable.Range(1, 10).Select(i => new Item { Id = i, Name = $"Item {i}" }).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Load();
+    }
+
+    private async void SortList((int oldIndex, int newIndex) indices)
+    {
+        // deconstruct the tuple
+        var (oldIndex, newIndex) = indices;
+
+        var items = this.items;
+        var itemToMove = items[oldIndex];
+        items.RemoveAt(oldIndex);
+
+        items.Insert(newIndex, itemToMove);
+
+        await Save();
+
+        //StateHasChanged();
+    }
+
+    void SetOrder()
+    {
+        for (int i = 0; i < items.Count; i++)
+        {
+            items[i].Order = i;
+        }
+    }
+
+    async Task Save()
+    {
+        SetOrder();
+        var json = JsonSerializer.Serialize(items);
+        await File.WriteAllTextAsync("items.json", json);
+    }
+
+    async Task Load()
+    {
+        if (File.Exists("items.json"))
+        {
+            var json = await File.ReadAllTextAsync("items.json");
+            items = JsonSerializer.Deserialize<List<Item>>(json);
+
+            items = items.OrderBy(x => x.Order).ToList();
+
+            //StateHasChanged();
+        }
+    }
+}
